@@ -3,9 +3,7 @@ from pymongo import MongoClient
 
 # --- CONFIGURATION ---
 # Replace these with environment variables in a real production environment!
-BOT_TOKEN = "8684244889:AAGRgsOSW-c4XW_hMMSeS7oAjlVVYyuw3dU"
-MONGO_URI = "mongodb+srv://laads761_db_user:S5XqkFU1NXgdcsc2@cluster0.iqcvxxk.mongodb.net/?appName=Cluster0"
-ADMIN_ID = 8167497030
+
 
 # Initialize the Bot
 bot = telebot.TeleBot(BOT_TOKEN)
