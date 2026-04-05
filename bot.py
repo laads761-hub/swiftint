@@ -15,19 +15,23 @@ bot = telebot.TeleBot(BOT_TOKEN)
 
 # Initialize MongoDB connection
 try:
-    # Use certifi.where() to explicitly provide the CA certificates for SSL verification
-    client = MongoClient(MONGO_URI, tlsCAFile=certifi.where())
+    # Fixes the 30-second delay: Added serverSelectionTimeoutMS=3000
+    # Fixes the SSL Crash: Added tls=True and tlsAllowInvalidCertificates=True
+    client = MongoClient(
+        MONGO_URI, 
+        tls=True,
+        tlsCAFile=certifi.where(),
+        tlsAllowInvalidCertificates=True, # Bypasses strict container SSL limits
+        serverSelectionTimeoutMS=3000     # Fails fast in 3s instead of 30s so the bot doesn't lag
+    )
     db = client['swift_int_bot_db']  # Creates/selects the database
     users_collection = db['users']   # Creates/selects the collection
     
     # Ping the database to force an immediate connection check
-    # This prevents the bot from waiting until a user sends a message to crash
     client.admin.command('ping')
     print("Successfully connected to MongoDB!")
 except Exception as e:
     print(f"Error connecting to MongoDB: {e}")
-    # You might want to exit the script here if the database is critical
-    # import sys; sys.exit(1)
 
 @bot.message_handler(commands=['start'])
 def handle_start(message):
@@ -45,14 +49,17 @@ def handle_start(message):
         print(f"Database read error during /start: {e}")
 
     # 2. Send the premium welcome message
+    # Note: To use REAL custom animated Telegram Premium emojis, you must use HTML parse mode
+    # and know the specific emoji ID. 
+    # Example format: <tg-emoji emoji-id="5368324170671202286">👍</tg-emoji>
     welcome_text = (
-        "✨ **Welcome to Swift Inr!** 🚀\n\n"
+        "<b>✨ Welcome to Swift Inr! 🚀</b>\n\n"
         "💎 We are absolutely thrilled to have you here.\n\n"
-        "🎯 *To access the exclusive mini app*, simply tap the button on the bottom left, "
+        "🎯 <i>To access the exclusive mini app</i>, simply tap the button on the bottom left, "
         "right next to your message input field. Let's get started! 🌟"
     )
-    # Added parse_mode="Markdown" so the bold and italic text renders correctly
-    bot.reply_to(message, welcome_text, parse_mode="Markdown")
+    # Using parse_mode="HTML" for premium formatting support
+    bot.reply_to(message, welcome_text, parse_mode="HTML")
 
 @bot.message_handler(commands=['broadcast'])
 def handle_broadcast(message):
@@ -68,7 +75,7 @@ def handle_broadcast(message):
     broadcast_text = message.text.replace('/broadcast', '').strip()
     
     if not broadcast_text:
-        bot.reply_to(message, "⚠️ Please provide a message to broadcast.\n\nUsage: `/broadcast Your message here`", parse_mode="Markdown")
+        bot.reply_to(message, "⚠️ Please provide a message to broadcast.\n\nUsage: <code>/broadcast Your message here</code>", parse_mode="HTML")
         return
 
     # 3. Fetch all users and send the message
@@ -91,11 +98,11 @@ def handle_broadcast(message):
 
         # 4. Send the final report to the admin
         report = (
-            f"✅ **Broadcast Complete!**\n\n"
+            f"✅ <b>Broadcast Complete!</b>\n\n"
             f"Delivered successfully: {success_count} users\n"
             f"Failed to deliver: {fail_count} users"
         )
-        bot.reply_to(message, report, parse_mode="Markdown")
+        bot.reply_to(message, report, parse_mode="HTML")
         
     except Exception as e:
         print(f"Database error during broadcast: {e}")
