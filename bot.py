@@ -1,10 +1,11 @@
 import telebot
 from pymongo import MongoClient
-import certifi # Added certifi for SSL resolution
+import certifi # Required to fix MongoDB SSL handshake errors
 
 # --- CONFIGURATION ---
-# Replace these with environment variables in a real production environment!
-# Please CHANGE these credentials as they were exposed!
+# ⚠️ WARNING: Your Bot Token and MongoDB Password are hardcoded here!
+# Please rotate/change your passwords and tokens immediately after testing, 
+# and use environment variables (e.g., os.environ.get("BOT_TOKEN")) in production.
 BOT_TOKEN = "8684244889:AAGRgsOSW-c4XW_hMMSeS7oAjlVVYyuw3dU"
 MONGO_URI = "mongodb+srv://laads761_db_user:S5XqkFU1NXgdcsc2@cluster0.iqcvxxk.mongodb.net/?appName=Cluster0"
 ADMIN_ID = 8167497030
@@ -14,28 +15,34 @@ bot = telebot.TeleBot(BOT_TOKEN)
 
 # Initialize MongoDB connection
 try:
-    # Added tlsCAFile=certifi.where() to fix the SSL handshake error
+    # Use certifi.where() to explicitly provide the CA certificates for SSL verification
     client = MongoClient(MONGO_URI, tlsCAFile=certifi.where())
-    db = client['swift_int_bot_db'] # Creates/selects the database
+    db = client['swift_int_bot_db']  # Creates/selects the database
     users_collection = db['users']   # Creates/selects the collection
     
-    # Send a quick ping to confirm the connection is fully established
+    # Ping the database to force an immediate connection check
+    # This prevents the bot from waiting until a user sends a message to crash
     client.admin.command('ping')
     print("Successfully connected to MongoDB!")
 except Exception as e:
     print(f"Error connecting to MongoDB: {e}")
+    # You might want to exit the script here if the database is critical
+    # import sys; sys.exit(1)
 
 @bot.message_handler(commands=['start'])
 def handle_start(message):
     user_id = message.from_user.id
     
     # 1. Save user to MongoDB if they don't already exist
-    if not users_collection.find_one({"user_id": user_id}):
-        try:
-            users_collection.insert_one({"user_id": user_id})
-            print(f"New user {user_id} added to the database.")
-        except Exception as e:
-            print(f"Failed to add user {user_id} to database: {e}")
+    try:
+        if not users_collection.find_one({"user_id": user_id}):
+            try:
+                users_collection.insert_one({"user_id": user_id})
+                print(f"New user {user_id} added to the database.")
+            except Exception as e:
+                print(f"Failed to add user {user_id} to database: {e}")
+    except Exception as e:
+        print(f"Database read error during /start: {e}")
 
     # 2. Send the welcome message
     welcome_text = (
@@ -65,27 +72,32 @@ def handle_broadcast(message):
     # 3. Fetch all users and send the message
     bot.reply_to(message, "⏳ Starting broadcast... This may take a moment depending on the number of users.")
     
-    users = users_collection.find()
-    success_count = 0
-    fail_count = 0
+    try:
+        users = users_collection.find()
+        success_count = 0
+        fail_count = 0
 
-    for user in users:
-        target_id = user.get('user_id')
-        try:
-            bot.send_message(target_id, broadcast_text)
-            success_count += 1
-        except Exception as e:
-            # User might have blocked the bot or deleted their account
-            fail_count += 1
-            print(f"Failed to send to {target_id}: {e}")
+        for user in users:
+            target_id = user.get('user_id')
+            try:
+                bot.send_message(target_id, broadcast_text)
+                success_count += 1
+            except Exception as e:
+                # User might have blocked the bot or deleted their account
+                fail_count += 1
+                print(f"Failed to send to {target_id}: {e}")
 
-    # 4. Send the final report to the admin
-    report = (
-        f"✅ **Broadcast Complete!**\n\n"
-        f"Delivered successfully: {success_count} users\n"
-        f"Failed to deliver: {fail_count} users"
-    )
-    bot.reply_to(message, report, parse_mode="Markdown")
+        # 4. Send the final report to the admin
+        report = (
+            f"✅ **Broadcast Complete!**\n\n"
+            f"Delivered successfully: {success_count} users\n"
+            f"Failed to deliver: {fail_count} users"
+        )
+        bot.reply_to(message, report, parse_mode="Markdown")
+        
+    except Exception as e:
+        print(f"Database error during broadcast: {e}")
+        bot.reply_to(message, "❌ An error occurred while accessing the database for the broadcast.")
 
 # Start the bot
 if __name__ == '__main__':
