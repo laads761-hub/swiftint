@@ -1,10 +1,12 @@
 import telebot
 from pymongo import MongoClient
+import certifi # Added certifi for SSL resolution
 
 # --- CONFIGURATION ---
 # Replace these with environment variables in a real production environment!
+# Please CHANGE these credentials as they were exposed!
 BOT_TOKEN = "8684244889:AAGRgsOSW-c4XW_hMMSeS7oAjlVVYyuw3dU"
-MONGO_URI = "mongodb+srv://laads761_db_user:S5XqkFU1NXgdcsc2@cluster0.iqcvxxk.mongodb.net/?appName=Cluster0"
+MONGO_URI = "mongodb+srv://laads761_db_user:YOUR_NEW_PASSWORD@cluster0.iqcvxxk.mongodb.net/?appName=Cluster0"
 ADMIN_ID = 8167497030
 
 # Initialize the Bot
@@ -12,9 +14,13 @@ bot = telebot.TeleBot(BOT_TOKEN)
 
 # Initialize MongoDB connection
 try:
-    client = MongoClient(MONGO_URI)
+    # Added tlsCAFile=certifi.where() to fix the SSL handshake error
+    client = MongoClient(MONGO_URI, tlsCAFile=certifi.where())
     db = client['swift_int_bot_db'] # Creates/selects the database
     users_collection = db['users']   # Creates/selects the collection
+    
+    # Send a quick ping to confirm the connection is fully established
+    client.admin.command('ping')
     print("Successfully connected to MongoDB!")
 except Exception as e:
     print(f"Error connecting to MongoDB: {e}")
