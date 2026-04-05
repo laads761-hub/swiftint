@@ -44,13 +44,15 @@ def handle_start(message):
     except Exception as e:
         print(f"Database read error during /start: {e}")
 
-    # 2. Send the welcome message
+    # 2. Send the premium welcome message
     welcome_text = (
-        "Welcome to swift inr bot! 🎉\n\n"
-        "To access the mini app, find the button below on the left, "
-        "right beside the message input field."
+        "✨ **Welcome to Swift Inr!** 🚀\n\n"
+        "💎 We are absolutely thrilled to have you here.\n\n"
+        "🎯 *To access the exclusive mini app*, simply tap the button on the bottom left, "
+        "right next to your message input field. Let's get started! 🌟"
     )
-    bot.reply_to(message, welcome_text)
+    # Added parse_mode="Markdown" so the bold and italic text renders correctly
+    bot.reply_to(message, welcome_text, parse_mode="Markdown")
 
 @bot.message_handler(commands=['broadcast'])
 def handle_broadcast(message):
